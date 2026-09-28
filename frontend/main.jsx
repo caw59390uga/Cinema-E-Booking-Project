@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import "./styles.css";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000/api";
 
 const GENRES = ["All", "Action", "Comedy", "Drama", "Sci-Fi", "Horror", "Romance"];
 
