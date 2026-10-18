@@ -11,3 +11,31 @@ def format_movie(movie):
         "status": movie.get("status", "Currently Running"),
         "showtimes": movie.get("showtimes", [])
     }
+
+def format_user(user):
+    return {
+        "user_id": user.get("userId"),
+        "user_type": user.get("userType", "Customer"),
+        "first_name": user.get("firstName", ""),
+        "last_name": user.get("lastName", ""),
+        "email": user.get("email", ""),
+        "state": user.get("state", "Active"),
+        "mailing_address": user.get("mailingAddress", {}),
+        "saved_cards": user.get("savedCards", [])
+    }
+
+def format_theatre(theatre):
+    return {
+        "theatre_id": theatre.get("theatreId"),
+        "name": theatre.get("name", ""),
+        "showrooms": theatre.get("showrooms", [])
+    }
+
+def format_promotion(promo):
+    return {
+        "promotion_id": promo.get("promotionId"),
+        "code": promo.get("code", ""),
+        "discount_percent": promo.get("discountPercent", 0.0),
+        "valid_from": promo.get("validFrom"),
+        "valid_until": promo.get("validUntil")
+    }
