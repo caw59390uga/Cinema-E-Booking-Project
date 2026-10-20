@@ -27,6 +27,7 @@ function App() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
   const [bookingMovie, setBookingMovie] = useState(null);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -82,6 +83,10 @@ function App() {
     setSearch("");
     setGenre("All");
     setStatus(next);
+  }
+
+  if (accountOpen) {
+    return <AccountPage onBack={() => setAccountOpen(false)} />;
   }
 
   if (bookingMovie) {
@@ -140,6 +145,9 @@ function App() {
             </button>
           </nav>
 
+          <button className="account-nav-btn" onClick={() => setAccountOpen(true)}>
+            <User size={16} /> Account
+          </button>
           <div className="search-box">
             <Search size={17} />
 
@@ -509,6 +517,63 @@ function MovieModal({ movie, onClose, onBook }) {
 }
 
 
+
+/* Demo account from the User MongoDB model.
+   This is NOT authentication. No arbitrary account search or card display. */
+function AccountPage({ onBack }) {
+  const [account, setAccount] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      try {
+        const response = await fetch(`${API_BASE}/users/demo`, { signal: controller.signal });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Profile unavailable");
+        setAccount(data.user);
+      } catch (err) {
+        if (err.name !== "AbortError") setError(err.message);
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }
+    load();
+    return () => controller.abort();
+  }, []);
+
+  return (
+    <div className="booking-page">
+      <header className="nav"><div className="nav-inner">
+        <button className="brand" onClick={onBack}>
+          <span className="brand-icon"><Clapperboard size={19} /></span> CINEMA
+        </button>
+      </div></header>
+      <main className="account-container">
+        <button className="back-button" onClick={onBack}><ArrowLeft size={17} /> Back to movies</button>
+        <p className="section-kicker">ACCOUNT</p>
+        <h1>My Account</h1>
+        <p className="account-note">Sample profile from the Users collection. Sign-in and account editing are not implemented yet.</p>
+        {loading ? <p>Loading account…</p> : error ? (
+          <div className="booking-section" role="alert">{error}</div>
+        ) : account && (
+          <div className="account-card">
+            <div className="account-avatar"><User size={30} /></div>
+            <h2>{account.first_name} {account.last_name}</h2>
+            <div className="account-grid">
+              <div><span>Account ID</span><strong>{account.user_id}</strong></div>
+              <div><span>Account type</span><strong>{account.user_type}</strong></div>
+              <div><span>Email</span><strong>{account.email}</strong></div>
+              <div><span>Account status</span><strong>{account.state}</strong></div>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
 /* =========================================================
    BOOKING PAGE
 ========================================================= */
@@ -521,14 +586,68 @@ function BookingPage({ movie, onBack }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [confirmed, setConfirmed] = useState(false);
+  const [theatres, setTheatres] = useState([]);
+  const [theatreId, setTheatreId] = useState("");
+  const [showroomId, setShowroomId] = useState("");
+  const [theatreLoading, setTheatreLoading] = useState(true);
+  const [theatreError, setTheatreError] = useState("");
+  const [promotions, setPromotions] = useState([]);
+  const [promoCode, setPromoCode] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState(null);
+  const [promoError, setPromoError] = useState("");
 
-  const rows = ["A", "B", "C", "D", "E", "F"];
-  const seatsPerRow = 10;
+  useEffect(() => {
+    const controller = new AbortController();
+    async function getTheatres() {
+      try {
+        const response = await fetch(`${API_BASE}/theatres`, { signal: controller.signal });
+        if (!response.ok) throw new Error("Theatre API unavailable");
+        const result = await response.json();
+        setTheatres(result);
+      } catch (err) {
+        if (err.name !== "AbortError") setTheatreError(err.message);
+      } finally {
+        if (!controller.signal.aborted) setTheatreLoading(false);
+      }
+    }
+    async function getPromotions() {
+      try {
+        const response = await fetch(`${API_BASE}/promotions`, { signal: controller.signal });
+        if (!response.ok) return;
+        setPromotions(await response.json());
+      } catch (err) { /* An unavailable promotion service never invents discounts. */ }
+    }
+    getTheatres();
+    getPromotions();
+    return () => controller.abort();
+  }, []);
+
+  const theatre = theatres.find((t) => t.theatre_id === theatreId) || theatres[0];
+  const showrooms = theatre?.showrooms || [];
+  const showroom = showrooms.find((s) => s.showroomId === showroomId) || showrooms[0];
+  const seats = Array.isArray(showroom?.seats) ? showroom.seats : [];
+  const rows = [...new Set(seats.map((s) => String(s.row)))].sort();
 
   const ticketPrice = 13.5;
   const subtotal = selectedSeats.length * ticketPrice;
   const fee = selectedSeats.length ? 2.5 : 0;
-  const total = subtotal + fee;
+  const discount = appliedPromo ? subtotal * Number(appliedPromo.discount_percent || 0) / 100 : 0;
+  const total = Math.max(0, subtotal - discount) + fee;
+
+  async function applyPromotion(code = promoCode) {
+    setPromoError("");
+    setAppliedPromo(null);
+    if (!code.trim()) { setPromoError("Enter a promotion code."); return; }
+    try {
+      const response = await fetch(`${API_BASE}/promotions/validate?code=${encodeURIComponent(code.trim())}`);
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Invalid promotion");
+      setPromoCode(result.code);
+      setAppliedPromo(result);
+    } catch (err) {
+      setPromoError(err.message || "Could not validate promotion");
+    }
+  }
 
   function toggleSeat(seat) {
     setSelectedSeats((current) => {
@@ -549,6 +668,7 @@ function BookingPage({ movie, onBack }) {
 
     if (
       selectedSeats.length === 0 ||
+      !time ||
       !name.trim() ||
       !email.trim()
     ) {
@@ -586,17 +706,18 @@ function BookingPage({ movie, onBack }) {
           </div>
 
           <p className="section-kicker">
-            BOOKING CONFIRMED
+            BOOKING REVIEW
           </p>
 
-          <h1>Your tickets are booked.</h1>
+          <h1>Your selections are ready.</h1>
 
           <p className="confirmation-text">
-            Your reservation for{" "}
-            <strong>{movie.title}</strong>{" "}
-            is confirmed.
+            Your selection for <strong>{movie.title}</strong> is ready to review.
+            No payment has been processed and no reservation has been saved.
           </p>
 
+          <p className="account-note">Theatre: {theatre?.name} · {showroom?.name}</p>
+          {appliedPromo && <p>Promo applied: {appliedPromo.code} ({appliedPromo.discount_percent}% off tickets)</p>}
           <div className="confirmation-card">
 
             <div>
@@ -759,6 +880,25 @@ function BookingPage({ movie, onBack }) {
                 </div>
               </div>
 
+              <div className="theatre-pickers">
+                <label>Theatre
+                  <select value={theatre?.theatre_id || ""} onChange={(e) => {
+                    setTheatreId(e.target.value); setShowroomId(""); setSelectedSeats([]);
+                  }} disabled={theatres.length === 0}>
+                    {theatres.map((t) => <option key={t.theatre_id} value={t.theatre_id}>{t.name}</option>)}
+                  </select>
+                </label>
+                <label>Screen
+                  <select value={showroom?.showroomId || ""} onChange={(e) => {
+                    setShowroomId(e.target.value); setSelectedSeats([]);
+                  }} disabled={showrooms.length === 0}>
+                    {showrooms.map((s) => <option key={s.showroomId} value={s.showroomId}>{s.name}</option>)}
+                  </select>
+                </label>
+              </div>
+              {theatreLoading && <p>Loading seating layout…</p>}
+              {theatreError && <p role="alert">{theatreError}</p>}
+              {!theatreLoading && !theatreError && !seats.length && <p>No seats configured for this screen.</p>}
               <div className="screen">
                 SCREEN
               </div>
@@ -766,41 +906,24 @@ function BookingPage({ movie, onBack }) {
               <div className="seat-map">
 
                 {rows.map((row) => (
-                  <div
-                    className="seat-row"
-                    key={row}
-                  >
-
-                    <span className="row-label">
-                      {row}
-                    </span>
-
-                    {Array.from({
-                      length: seatsPerRow
-                    }).map((_, i) => {
-
-                      const seat = `${row}${i + 1}`;
-
-                      const selected =
-                        selectedSeats.includes(seat);
-
-                      return (
-                        <button
-                          key={seat}
-                          className={
-                            selected
-                              ? "seat selected"
-                              : "seat"
-                          }
-                          onClick={() =>
-                            toggleSeat(seat)
-                          }
-                        >
-                          {i + 1}
-                        </button>
-                      );
-                    })}
-
+                  <div className="seat-row" key={row}>
+                    <span className="row-label">{row}</span>
+                    {seats.filter((s) => String(s.row) === row)
+                      .sort((a, b) => Number(a.number) - Number(b.number))
+                      .map((s) => {
+                        const seat = s.seatId || `${s.row}${s.number}`;
+                        const isSelected = selectedSeats.includes(seat);
+                        return (
+                          <button type="button" key={seat}
+                            title={`Seat ${s.row}${s.number}`}
+                            aria-label={`Seat ${s.row}${s.number}`}
+                            aria-pressed={isSelected}
+                            className={isSelected ? "seat selected" : "seat"}
+                            onClick={() => toggleSeat(seat)}>
+                            {s.number}
+                          </button>
+                        );
+                      })}
                   </div>
                 ))}
 
@@ -871,11 +994,12 @@ function BookingPage({ movie, onBack }) {
                 type="submit"
                 disabled={
                   selectedSeats.length === 0 ||
+                  !time ||
                   !name.trim() ||
                   !email.trim()
                 }
               >
-                Confirm Booking
+                Review Selection
               </button>
 
             </form>
@@ -909,6 +1033,12 @@ function BookingPage({ movie, onBack }) {
               </div>
 
               <div className="summary-row">
+                <span>Theatre</span><strong>{theatre?.name || "Unavailable"}</strong>
+              </div>
+              <div className="summary-row">
+                <span>Screen</span><strong>{showroom?.name || "Unavailable"}</strong>
+              </div>
+              <div className="summary-row">
                 <span>Seats</span>
                 <strong>
                   {selectedSeats.length
@@ -937,6 +1067,25 @@ function BookingPage({ movie, onBack }) {
                 </strong>
               </div>
 
+              <div className="promotion-box">
+                <label htmlFor="promo-code">Promotion code</label>
+                <div className="promotion-input">
+                  <input id="promo-code" value={promoCode} placeholder="Enter code"
+                    onChange={(e) => { setPromoCode(e.target.value); setAppliedPromo(null); setPromoError(""); }} />
+                  <button type="button" onClick={() => applyPromotion()}>Apply</button>
+                </div>
+                {promotions.length > 0 && <div className="promo-chips">
+                  {promotions.map((p) => <button key={p.promotion_id} type="button"
+                    onClick={() => applyPromotion(p.code)}>
+                    {p.code} · {p.discount_percent}% off
+                  </button>)}
+                </div>}
+                {promoError && <p className="promo-error" role="alert">{promoError}</p>}
+                {appliedPromo && <p className="promo-success">{appliedPromo.code} applied</p>}
+              </div>
+              {appliedPromo && <div className="summary-row">
+                <span>Promotion savings</span><strong>-${discount.toFixed(2)}</strong>
+              </div>}
               <div className="summary-total">
                 <span>Total</span>
 
