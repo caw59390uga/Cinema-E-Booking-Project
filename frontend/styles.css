@@ -584,3 +584,30 @@ footer { border-top: 1px solid #18181c; color: #5e5e66; font-size: 11px; }
     font-size: 34px;
   }
 }
+
+/* User, theatre and promotion model integrations */
+.account-nav-btn { border: 1px solid #303035; background: #19191d; color: #eee;
+  border-radius: 8px; padding: 9px 12px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.account-nav-btn:hover { border-color: var(--gold); color: var(--gold); }
+.account-container { max-width: 760px; margin: 0 auto; padding: 50px 22px; }
+.account-container > .section-kicker { margin-top: 35px; }
+.account-container h1 { font: 600 42px 'Playfair Display', serif; margin: 8px 0 14px; }
+.account-note { color: #a1a1aa; font-size: 13px; line-height: 1.6; }
+.account-card { margin-top: 30px; padding: 28px; border: 1px solid #29292e; background: #111113; border-radius: 13px; }
+.account-avatar { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; color: #16120a; background: var(--gold); }
+.account-card h2 { margin: 18px 0 25px; }
+.account-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; }
+.account-grid div { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.account-grid span { color: #8f8f98; font-size: 12px; }
+.account-grid strong { overflow-wrap: anywhere; font-size: 14px; }
+.theatre-pickers { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 22px; }
+.theatre-pickers label, .promotion-box label { color: #aaa; font-size: 12px; display: grid; gap: 7px; }
+.theatre-pickers select, .promotion-input input { min-width: 0; width: 100%; color: #eee; background: #19191d; border: 1px solid #38383c; padding: 10px; border-radius: 7px; }
+.promotion-box { border-top: 1px solid #29292e; margin: 21px 0 10px; padding-top: 19px; }
+.promotion-input { display: flex; gap: 7px; margin: 9px 0; }
+.promotion-input button { color: #18120a; background: var(--gold); border: 0; padding: 9px 13px; border-radius: 7px; font-weight: 700; }
+.promo-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.promo-chips button { background: #272119; color: var(--gold); border: 1px solid #5b4423; border-radius: 6px; padding: 6px 9px; font-size: 11px; }
+.promo-error { color: #ff8989; font-size: 12px; }
+.promo-success { color: #a7d66b; font-size: 12px; }
+@media(max-width:620px) { .account-grid,.theatre-pickers { grid-template-columns: 1fr; } .account-nav-btn { padding: 7px; font-size: 12px; } }
