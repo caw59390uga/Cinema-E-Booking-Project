@@ -584,3 +584,5 @@ footer { border-top: 1px solid #18181c; color: #5e5e66; font-size: 11px; }
     font-size: 34px;
   }
 }
+.account-navbar-link{font:inherit;color:#f5b84b;background:transparent;border:1px solid #544222;border-radius:8px;padding:9px 11px;white-space:nowrap;font-size:12px}
+@media(max-width:620px){.account-navbar-link{padding:7px;font-size:10px}}

@@ -14,6 +14,12 @@ from models import (
 from security import (
     hash_password, verify_password, generate_token, hash_token
 )
+from account_security import (
+    registration as secure_registration, resend_verification as secure_resend,
+    verify_registration as secure_verify, forgot_password as secure_forgot,
+    reset_password as secure_reset, change_password as secure_change_password,
+    require_owner, read_authenticated_user, make_access_token
+)
 
 load_dotenv()
 
@@ -97,129 +103,45 @@ def get_movie_by_id(tmdb_id):
 
 @app.route('/api/auth/register', methods=['POST'])
 def register():
-    """TC1: Create user account (Inactive status, sends verification token)"""
-    data = request.json or {}
-    first_name = data.get("first_name")
-    last_name = data.get("last_name")
-    email = data.get("email")
-    phone = data.get("phone", "")
-    password = data.get("password")
-    promo_opt_in = data.get("promo_opt_in", False)
-
-    if not all([first_name, last_name, email, password]):
-        return jsonify({"error": "Missing required registration fields"}), 400
-
-    user_doc = create_user(users_collection, first_name, last_name, email, phone, password, promo_opt_in)
-    if not user_doc:
-        return jsonify({"error": "An account with this email already exists"}), 400
-
-    # Generate verification token
-    raw_token = generate_token()
-    token_doc = {
-        "tokenHash": hash_token(raw_token),
-        "userId": user_doc["userId"],
-        "type": "verify",
-        "expiresAt": datetime.now(timezone.utc) + timedelta(hours=24),
-        "used": False
-    }
-    tokens_collection.insert_one(token_doc)
-
-    print(f"\n[DEMO EMAIL VERIFICATION LINK]: http://127.0.0.1:5000/api/auth/verify?token={raw_token}\n")
-
-    return jsonify({
-        "message": "Account created successfully! Please check your email to verify your account.",
-        "user_id": user_doc["userId"],
-        "status": "Inactive",
-        "demo_verify_token": raw_token
-    }), 201
+    return secure_registration(users_collection, tokens_collection)
 
 
 @app.route('/api/auth/verify', methods=['GET', 'POST'])
 def verify_account():
-    """TC3: Verify account using token"""
-    token = request.args.get('token') or (request.json or {}).get('token')
-    if not token:
-        return jsonify({"error": "Token is required"}), 400
-
-    token_hash = hash_token(token)
-    token_record = tokens_collection.find_one({"tokenHash": token_hash, "type": "verify", "used": False})
-
-    if not token_record:
-        return jsonify({"error": "Invalid or expired verification token"}), 400
-
-    # Activate User
-    users_collection.update_one({"userId": token_record["userId"]}, {"$set": {"status": "Active"}})
-    tokens_collection.update_one({"_id": token_record["_id"]}, {"$set": {"used": True}})
-
-    return jsonify({"message": "Account successfully verified! You may now log in."}), 200
+    return secure_verify(users_collection, tokens_collection)
 
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
-    """TC2, TC4, TC5, TC6: Login handler for Verified, Unverified, and Admin accounts"""
-    data = request.json or {}
-    email = data.get("email", "")
-    password = data.get("password", "")
-
+    data = request.get_json(silent=True) or {}
+    email = data.get('email', '')
+    password = data.get('password', '')
+    if not isinstance(email, str) or not isinstance(password, str):
+        return jsonify({'error': 'Invalid email or password.'}), 401
     user = get_user_by_email(users_collection, email)
-    if not user or not verify_password(password, user.get("passwordHash", "")):
-        return jsonify({"error": "Invalid email or password."}), 401
-
-    # TC2 check: Unverified account
-    if user.get("status") == "Inactive":
-        return jsonify({"error": "Account is not verified. Please check your email to verify your account."}), 403
-
-    if user.get("status") == "Suspended":
-        return jsonify({"error": "Your account has been suspended."}), 403
-
-    # TC4/TC6: Successful Login
-    return jsonify({
-        "message": "Login successful",
-        "user": format_user(user)
-    }), 200
+    if not user or not verify_password(password, user.get('passwordHash', '')):
+        return jsonify({'error': 'Invalid email or password.'}), 401
+    if user.get('status') == 'Inactive':
+        return jsonify({'error': 'Verify your email before logging in.'}), 403
+    if user.get('status') != 'Active':
+        return jsonify({'error': 'Account access is not available.'}), 403
+    try:
+        token = make_access_token(user)
+    except RuntimeError:
+        return jsonify({'error': 'Account service configuration is incomplete.'}), 503
+    return jsonify({'message': 'Login successful', 'user': format_user(user),
+                    'access_token': token, 'token_type': 'Bearer',
+                    'expires_in': 43200}), 200
 
 
 @app.route('/api/auth/forgot-password', methods=['POST'])
 def forgot_password():
-    data = request.json or {}
-    email = data.get("email", "")
-    user = get_user_by_email(users_collection, email)
-    if not user:
-        return jsonify({"message": "If the account exists, a reset link has been generated."}), 200
-
-    raw_token = generate_token()
-    tokens_collection.insert_one({
-        "tokenHash": hash_token(raw_token),
-        "userId": user["userId"],
-        "type": "reset",
-        "expiresAt": datetime.now(timezone.utc) + timedelta(hours=1),
-        "used": False
-    })
-
-    print(f"\n[DEMO PASSWORD RESET LINK]: http://127.0.0.1:5000/api/auth/reset-password?token={raw_token}\n")
-    return jsonify({"message": "Password reset token generated.", "demo_reset_token": raw_token}), 200
+    return secure_forgot(users_collection, tokens_collection)
 
 
 @app.route('/api/auth/reset-password', methods=['POST'])
 def reset_password():
-    data = request.json or {}
-    token = data.get("token")
-    new_password = data.get("new_password")
-
-    if not token or not new_password:
-        return jsonify({"error": "Token and new password required"}), 400
-
-    token_hash = hash_token(token)
-    token_record = tokens_collection.find_one({"tokenHash": token_hash, "type": "reset", "used": False})
-
-    if not token_record:
-        return jsonify({"error": "Invalid or expired reset token"}), 400
-
-    new_hash = hash_password(new_password)
-    users_collection.update_one({"userId": token_record["userId"]}, {"$set": {"passwordHash": new_hash}})
-    tokens_collection.update_one({"_id": token_record["_id"]}, {"$set": {"used": True}})
-
-    return jsonify({"message": "Password successfully reset."}), 200
+    return secure_reset(users_collection, tokens_collection)
 
 
 # ==========================================
@@ -238,6 +160,19 @@ def get_profile(user_id):
 def update_profile(user_id):
     """Updates profile details. Sends email notification on change."""
     data = request.json or {}
+
+    # Allow only shape-checked fields. The email address is deliberately read-only.
+    if 'address' in data:
+        if not isinstance(data['address'], dict):
+            return jsonify({'error': 'Address must be an object.'}), 400
+        allowed = ('street','city','state','postalCode','country')
+        if any(not isinstance(data['address'].get(k,''), str) or len(data['address'].get(k,'')) > 120 for k in allowed):
+            return jsonify({'error': 'Address fields must contain up to 120 characters.'}), 400
+    for k in ('first_name','last_name','phone'):
+        if k in data and (not isinstance(data[k], str) or len(data[k]) > 120):
+            return jsonify({'error': f'Invalid {k}.'}), 400
+    if 'promo_opt_in' in data and not isinstance(data['promo_opt_in'], bool):
+        return jsonify({'error': 'Invalid promotional preference.'}), 400
     user = get_user_by_id(users_collection, user_id)
     if not user:
         return jsonify({"error": "User not found"}), 404
@@ -275,6 +210,19 @@ def add_user_card(user_id):
 
     if not card_number or not expiration_date:
         return jsonify({"error": "Card number and expiration date required"}), 400
+    if not isinstance(card_number, str) or not isinstance(expiration_date, str):
+        return jsonify({'error': 'Card number and expiry must be text.'}), 400
+    import re as _re
+    from datetime import datetime as _dt
+    match = _re.fullmatch(r'(0[1-9]|1[0-2])/(\d{2})', expiration_date)
+    if not match:
+        return jsonify({'error': 'Expiry must be MM/YY.'}), 400
+    exp_year = 2000 + int(match.group(2)); exp_month = int(match.group(1))
+    today = _dt.now()
+    if (exp_year, exp_month) < (today.year, today.month):
+        return jsonify({'error': 'Card has expired.'}), 400
+    if card_type not in ('Visa','Mastercard','Amex','Discover'):
+        return jsonify({'error': 'Unsupported card type.'}), 400
 
     try:
         success = add_card(users_collection, user_id, card_number, card_type, expiration_date)
@@ -324,6 +272,37 @@ def remove_fav(user_id, tmdb_id):
     remove_favorite(users_collection, user_id, tmdb_id)
     return jsonify({"message": "Movie removed from favorites."}), 200
 
+
+
+# Account pages / secure profile contract. Keep these routes available for the
+# teammate's router and useAuth hook to use once their work lands.
+@app.before_request
+def protect_private_user_routes():
+    protected = {
+        'get_profile', 'update_profile', 'add_user_card', 'remove_user_card',
+        'get_favorites', 'add_fav', 'remove_fav', 'change_account_password'
+    }
+    if request.endpoint in protected:
+        user_id = (request.view_args or {}).get('user_id')
+        return require_owner(users_collection, user_id)
+
+
+@app.route('/api/auth/me', methods=['GET'])
+def account_me():
+    user = read_authenticated_user(users_collection)
+    if user is None:
+        return jsonify({'error': 'Sign in to view your profile.'}), 401
+    return jsonify({'user': format_user(user)}), 200
+
+
+@app.route('/api/auth/resend-verification', methods=['POST'])
+def account_resend_verification():
+    return secure_resend(users_collection, tokens_collection)
+
+
+@app.route('/api/users/<user_id>/change-password', methods=['POST'])
+def change_account_password(user_id):
+    return secure_change_password(users_collection, user_id)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

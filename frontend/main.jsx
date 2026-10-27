@@ -6,6 +6,7 @@ import {
   ArrowLeft, Check, User, Mail, Armchair
 } from "lucide-react";
 import "./styles.css";
+import AccountPages from "./AccountPages.jsx";
 
 const API_BASE =
   import.meta.env.VITE_API_URL || "http://127.0.0.1:5000/api";
@@ -21,6 +22,24 @@ const GENRES = [
 ];
 
 function App() {
+  const [accountPath, setAccountPath] = useState(() =>
+    window.location.pathname.startsWith('/account/') ? window.location.pathname : null
+  );
+  useEffect(() => {
+    const sync = () => setAccountPath(
+      window.location.pathname.startsWith('/account/') ? window.location.pathname : null
+    );
+    window.addEventListener('popstate', sync);
+    return () => window.removeEventListener('popstate', sync);
+  }, []);
+  function navigateAccount(path) {
+    window.history.pushState({}, '', path);
+    setAccountPath(path.startsWith('/account/') ? path : null);
+  }
+  // Handoff: teammate's useAuth hook should supply accessToken here. Do NOT
+  // fetch private profiles with a hardcoded userId or share credentials.
+  const accountToken = null;
+
   const [movies, setMovies] = useState([]);
   const [status, setStatus] = useState("Currently Running");
   const [genre, setGenre] = useState("All");
@@ -84,6 +103,10 @@ function App() {
     setStatus(next);
   }
 
+  if (accountPath) {
+    return <AccountPages path={accountPath} navigate={navigateAccount}
+      token={accountToken} onPasswordChanged={() => navigateAccount('/login')} />;
+  }
   if (bookingMovie) {
     return (
       <BookingPage
@@ -140,6 +163,8 @@ function App() {
             </button>
           </nav>
 
+          <button className="account-navbar-link" type="button"
+            onClick={() => navigateAccount('/account/register')}>Create Account</button>
           <div className="search-box">
             <Search size={17} />
 
