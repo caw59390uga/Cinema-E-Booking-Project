@@ -7,6 +7,8 @@ import {
 } from "lucide-react";
 import "./styles.css";
 import AccountPages from "./AccountPages.jsx";
+import LoginPage from "./LoginPage.jsx";
+import useAuth from "./hooks/useAuth.js";
 
 const API_BASE =
   import.meta.env.VITE_API_URL || "http://127.0.0.1:5000/api";
@@ -22,23 +24,50 @@ const GENRES = [
 ];
 
 function App() {
-  const [accountPath, setAccountPath] = useState(() =>
-    window.location.pathname.startsWith('/account/') ? window.location.pathname : null
-  );
+  const { accessToken, user, isAuthenticated, signIn, logout, loading: authLoading, error: authError } = useAuth();
+  const accountToken = accessToken;
+
+  // Keep React navigation synchronized with the browser's history.
+  const [accountPath, setAccountPath] = useState(() => {
+    const path = window.location.pathname;
+    return path === '/login' || path.startsWith('/account/') ? path : null;
+  });
+
   useEffect(() => {
-    const sync = () => setAccountPath(
-      window.location.pathname.startsWith('/account/') ? window.location.pathname : null
-    );
+    const sync = () => {
+      const path = window.location.pathname;
+      setAccountPath(path === '/login' || path.startsWith('/account/') ? path : null);
+    };
     window.addEventListener('popstate', sync);
     return () => window.removeEventListener('popstate', sync);
   }, []);
+
   function navigateAccount(path) {
     window.history.pushState({}, '', path);
-    setAccountPath(path.startsWith('/account/') ? path : null);
+    setAccountPath(path === '/login' || path.startsWith('/account/') ? path : null);
   }
-  // Handoff: teammate's useAuth hook should supply accessToken here. Do NOT
-  // fetch private profiles with a hardcoded userId or share credentials.
-  const accountToken = null;
+
+  async function handleLogin(email, password) {
+    const response = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || `Login failed (${response.status})`);
+    }
+    if (!data.access_token) {
+      throw new Error('Login response did not contain an access token.');
+    }
+    await signIn(data.access_token);
+    navigateAccount('/account/profile');
+  }
+
+  function handleLogout() {
+    logout();
+    navigateAccount('/login');
+  }
 
   const [movies, setMovies] = useState([]);
   const [status, setStatus] = useState("Currently Running");
@@ -103,9 +132,13 @@ function App() {
     setStatus(next);
   }
 
+  if (accountPath === '/login') {
+    return <LoginPage onLogin={handleLogin} navigate={navigateAccount}
+      loading={authLoading} authError={authError} />;
+  }
   if (accountPath) {
     return <AccountPages path={accountPath} navigate={navigateAccount}
-      token={accountToken} onPasswordChanged={() => navigateAccount('/login')} />;
+      token={accountToken} onPasswordChanged={handleLogout} />;
   }
   if (bookingMovie) {
     return (
@@ -163,8 +196,23 @@ function App() {
             </button>
           </nav>
 
-          <button className="account-navbar-link" type="button"
-            onClick={() => navigateAccount('/account/register')}>Create Account</button>
+          {isAuthenticated ? (
+            <>
+              <button className="account-navbar-link" type="button"
+                onClick={() => navigateAccount('/account/profile')}>
+                {user?.first_name ? `My Account (${user.first_name})` : 'My Account'}
+              </button>
+              <button className="account-navbar-link" type="button"
+                onClick={handleLogout}>Sign Out</button>
+            </>
+          ) : (
+            <>
+              <button className="account-navbar-link" type="button"
+                onClick={() => navigateAccount('/login')}>Sign In</button>
+              <button className="account-navbar-link" type="button"
+                onClick={() => navigateAccount('/account/register')}>Create Account</button>
+            </>
+          )}
           <div className="search-box">
             <Search size={17} />
 
