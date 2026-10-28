@@ -122,7 +122,7 @@ def login():
     if not user or not verify_password(password, user.get('passwordHash', '')):
         return jsonify({'error': 'Invalid email or password.'}), 401
     if user.get('status') == 'Inactive':
-        return jsonify({'error': 'Verify your email before logging in.'}), 403
+        return jsonify({'error': 'Account is not verified. Please check your email to verify your account.'}), 403
     if user.get('status') != 'Active':
         return jsonify({'error': 'Account access is not available.'}), 403
     try:
@@ -278,6 +278,8 @@ def remove_fav(user_id, tmdb_id):
 # teammate's router and useAuth hook to use once their work lands.
 @app.before_request
 def protect_private_user_routes():
+    if request.method == "OPTIONS":
+        return None
     protected = {
         'get_profile', 'update_profile', 'add_user_card', 'remove_user_card',
         'get_favorites', 'add_fav', 'remove_fav', 'change_account_password'

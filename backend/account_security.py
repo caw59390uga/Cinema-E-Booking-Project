@@ -19,7 +19,7 @@ from models import create_user, format_user, get_user_by_email
 from security import generate_token, hash_password, hash_token, verify_password
 
 TOKEN_LIFETIME_SECONDS = 12 * 60 * 60
-PASSWORD_MIN_LENGTH = 12
+PASSWORD_MIN_LENGTH = 8
 EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 
@@ -135,7 +135,7 @@ def registration(users, tokens):
     if not isinstance(phone, str) or len(phone) > 30:
         return jsonify({"error": "Phone number must be 30 characters or fewer."}), 400
     if not valid_password(password):
-        return jsonify({"error": "Password must be between 12 and 128 characters."}), 400
+        return jsonify({"error": "Password must be between 8 and 128 characters."}), 400
     if not smtp_ready():
         return jsonify({"error": "Email delivery is not configured. Contact the project administrator."}), 503
     user = create_user(users, names[0], names[1], email, phone, password, data.get("promo_opt_in") is True)
@@ -199,7 +199,7 @@ def reset_password(users, tokens):
     data = request.get_json(silent=True) or {}
     password = data.get("new_password")
     if not valid_password(password):
-        return jsonify({"error": "New password must be 12–128 characters."}), 400
+        return jsonify({"error": "New password must be 8–128 characters."}), 400
     record = consume_token(tokens, data.get("token"), "reset")
     if record is None:
         return jsonify({"error": "Reset link is invalid, expired, or already used."}), 400

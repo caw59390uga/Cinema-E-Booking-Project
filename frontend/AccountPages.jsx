@@ -81,7 +81,7 @@ export function RegisterPage({ navigate }) {
   async function submit(e) {
     e.preventDefault();
     if (form.password !== form.confirm) { request.setError('Passwords do not match.'); return; }
-    if (form.password.length < 12) { request.setError('Use at least 12 characters for your password.'); return; }
+    if (form.password.length < 8) { request.setError('Use at least 8 characters for your password.'); return; }
     const { confirm, ...payload } = form;
     const done = await request.run(() => api('/auth/register', 'POST', payload));
     if (done) setRegistered(true);
@@ -94,7 +94,7 @@ export function RegisterPage({ navigate }) {
       </div>
       <Field label="Email" name="email" type="email" value={form.email} onChange={input(setForm, form)} required maxLength={254} autoComplete="email" />
       <Field label="Phone (optional)" name="phone" type="tel" value={form.phone} onChange={input(setForm, form)} maxLength={30} autoComplete="tel" />
-      <Field label="Password (12+ characters)" name="password" type="password" value={form.password} onChange={input(setForm, form)} minLength={12} maxLength={128} required autoComplete="new-password" />
+      <Field label="Password (8+ characters)" name="password" type="password" value={form.password} onChange={input(setForm, form)} minLength={8} maxLength={128} required autoComplete="new-password" />
       <Field label="Confirm password" name="confirm" type="password" value={form.confirm} onChange={input(setForm, form)} required autoComplete="new-password" />
       <label className="account-checkbox"><input type="checkbox" name="promo_opt_in" checked={form.promo_opt_in} onChange={input(setForm, form)} /> Email me offers and promotions (optional)</label>
       <Notice {...request} /><Submit busy={request.busy}>Create account</Submit>
@@ -159,7 +159,7 @@ export function ResetPasswordPage({ navigate }) {
   return <Frame title="Set a new password" subtitle="Reset tokens expire after one hour and can only be used once." navigate={navigate} icon={LockKeyhole}>
     {!done && <form className="account-form" onSubmit={submit}>
       <Field label="Reset token" name="token" value={token} onChange={e=>setToken(e.target.value)} required />
-      <Field label="New password" name="new_password" type="password" minLength={12} maxLength={128} required autoComplete="new-password" value={passwords.new_password} onChange={input(setPasswords, passwords)} />
+      <Field label="New password" name="new_password" type="password" minLength={8} maxLength={128} required autoComplete="new-password" value={passwords.new_password} onChange={input(setPasswords, passwords)} />
       <Field label="Confirm new password" name="confirm" type="password" required autoComplete="new-password" value={passwords.confirm} onChange={input(setPasswords, passwords)} />
       <Notice {...request}/><Submit busy={request.busy}>Reset password</Submit>
     </form>}
@@ -180,7 +180,7 @@ function ChangePasswordForm({ userId, token, onPasswordChanged }) {
   return <section className="account-section"><h2>Change password</h2>
     <form className="account-form" onSubmit={submit}>
       <Field label="Current password" name="current_password" type="password" value={passwords.current_password} onChange={input(setPasswords, passwords)} required autoComplete="current-password" />
-      <Field label="New password (12+ characters)" name="new_password" type="password" minLength={12} maxLength={128} value={passwords.new_password} onChange={input(setPasswords, passwords)} required autoComplete="new-password" />
+      <Field label="New password (8+ characters)" name="new_password" type="password" minLength={8} maxLength={128} value={passwords.new_password} onChange={input(setPasswords, passwords)} required autoComplete="new-password" />
       <Field label="Confirm new password" name="confirm" type="password" value={passwords.confirm} onChange={input(setPasswords, passwords)} required autoComplete="new-password" />
       <Notice {...request}/><Submit busy={request.busy}>Update password</Submit>
     </form>
@@ -248,7 +248,7 @@ export function ProfilePage({ navigate, token, onPasswordChanged }) {
         </form>}
       </section>
       <section className="account-section"><h2><CreditCard size={20}/> Saved cards ({(profile.saved_cards||[]).length}/3)</h2>
-        <p className="account-note">Only card type, expiry and last four digits are shown. Never enter a CVV.</p>
+        {/* <p className="account-note">Only card type, expiry and last four digits are shown. Never enter a CVV.</p> */}
         {(profile.saved_cards||[]).map(c=><div className="account-card-row" key={c.card_id}>
           <span>{c.card_type} ending in {c.last4} · {c.expiration_date}</span>
           <button type="button" onClick={()=>deleteCard(c.card_id)} disabled={request.busy}>Remove</button>
