@@ -1,12 +1,18 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  Search, Play, X, Star, Clock3, Film, ChevronRight,
+  Search, Play, X, Clock3, Film, ChevronRight, Heart, LogOut,
   Clapperboard, CalendarDays, SlidersHorizontal,
   ArrowLeft, Check, User, Mail, Armchair
 } from "lucide-react";
 import "./styles.css";
+import "./integration.css";
 import AccountPages from "./AccountPages.jsx";
+import LoginPage from "./Loginpage.jsx";
+import AdminHome from "./AdminHome.jsx";
+import FavoritesPage from "./FavoritesPage.jsx";
+import HeartButton from "./HeartButton.jsx";
+import useAuth from "./hooks/useAuth.js";
 
 const API_BASE =
   import.meta.env.VITE_API_URL || "http://127.0.0.1:5000/api";
@@ -21,24 +27,59 @@ const GENRES = [
   "Romance"
 ];
 
-function App() {
-  const [accountPath, setAccountPath] = useState(() =>
-    window.location.pathname.startsWith('/account/') ? window.location.pathname : null
+// Shown briefly while a saved login is being re-checked after a refresh.
+function PageMessage({ text }) {
+  return (
+    <div className="account-screen">
+      <p className="page-loading">{text}</p>
+    </div>
   );
+}
+
+// Sends the user to another page (used by the route guards).
+function Redirect({ to, navigate, notice, notify }) {
   useEffect(() => {
-    const sync = () => setAccountPath(
-      window.location.pathname.startsWith('/account/') ? window.location.pathname : null
-    );
-    window.addEventListener('popstate', sync);
-    return () => window.removeEventListener('popstate', sync);
+    if (notice) notify(notice, "error");
+    navigate(to, true);
+  }, [to]);
+  return null;
+}
+
+function App() {
+  // ---- Login state (one copy for the whole app) ----
+  const auth = useAuth();
+  const isAdmin = auth.user?.user_type === "Admin";
+
+  // ---- Simple page routing (works with the /account/* email links) ----
+  const [path, setPath] = useState(() => window.location.pathname);
+  useEffect(() => {
+    const sync = () => setPath(window.location.pathname);
+    window.addEventListener("popstate", sync);
+    return () => window.removeEventListener("popstate", sync);
   }, []);
-  function navigateAccount(path) {
-    window.history.pushState({}, '', path);
-    setAccountPath(path.startsWith('/account/') ? path : null);
+  function navigate(to, replace = false) {
+    const [pathname] = to.split("?");
+    if (replace) window.history.replaceState({}, "", to);
+    else window.history.pushState({}, "", to);
+    setPath(pathname);
+    window.scrollTo(0, 0);
   }
-  // Handoff: teammate's useAuth hook should supply accessToken here. Do NOT
-  // fetch private profiles with a hardcoded userId or share credentials.
-  const accountToken = null;
+
+  // ---- Toast messages ----
+  const [toast, setToast] = useState(null);
+  const toastTimer = useRef(null);
+  function showToast(message, kind = "info") {
+    setToast({ message, kind });
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 3500);
+  }
+
+  // ---- Favorites ----
+  const favoriteIds = useMemo(
+    () => new Set(auth.user?.favorites || []),
+    [auth.user]
+  );
+  const favoriteBusy = useRef(false);
 
   const [movies, setMovies] = useState([]);
   const [status, setStatus] = useState("Currently Running");
@@ -103,21 +144,123 @@ function App() {
     setStatus(next);
   }
 
-  if (accountPath) {
-    return <AccountPages path={accountPath} navigate={navigateAccount}
-      token={accountToken} onPasswordChanged={() => navigateAccount('/login')} />;
-  }
-  if (bookingMovie) {
-    return (
-      <BookingPage
-        movie={bookingMovie}
-        onBack={() => setBookingMovie(null)}
-      />
-    );
+  async function handleLogin(email, password) {
+    const loggedIn = await auth.login(email, password);
+    showToast(`Welcome back, ${loggedIn.first_name}!`, "success");
+    navigate(loggedIn.user_type === "Admin" ? "/admin" : "/");
   }
 
-  return (
-    <div className="app">
+  function handleLogout() {
+    auth.logout();
+    navigate("/");
+    showToast("You have been signed out.", "success");
+  }
+
+  function handlePasswordChanged() {
+    auth.logout();
+    showToast("Password changed. Please sign in again.", "success");
+    navigate("/login");
+  }
+
+  async function toggleFavorite(movie) {
+    if (!auth.isAuthenticated) {
+      showToast("Sign in to save favorites.", "error");
+      navigate("/login");
+      return;
+    }
+    if (favoriteBusy.current) return;
+    favoriteBusy.current = true;
+
+    const id = movie.tmdb_id;
+    const wasFavorite = favoriteIds.has(id);
+    const base = `/users/${encodeURIComponent(auth.user.user_id)}/favorites`;
+
+    try {
+      if (wasFavorite) {
+        await auth.authFetch(`${base}/${id}`, { method: "DELETE" });
+      } else {
+        await auth.authFetch(base, {
+          method: "POST",
+          body: JSON.stringify({ tmdb_id: id }),
+        });
+      }
+      await auth.refreshUser();
+      showToast(
+        wasFavorite ? "Removed from favorites." : "Added to favorites.",
+        "success"
+      );
+    } catch (err) {
+      showToast(err.message || "Could not update favorites.", "error");
+      if (err.status === 401) navigate("/login");
+    } finally {
+      favoriteBusy.current = false;
+    }
+  }
+
+  function renderPage() {
+    const waiting = auth.initializing;
+
+    // Account pages: register / verify / forgot / reset are public,
+    // the profile page needs a login.
+    if (path.startsWith("/account/")) {
+      if (path === "/account/profile") {
+        if (waiting) return <PageMessage text="Restoring your session…" />;
+        if (!auth.isAuthenticated) {
+          return <Redirect to="/login" navigate={navigate}
+            notice="Please sign in to view your profile." notify={showToast} />;
+        }
+      }
+      return (
+        <AccountPages
+          path={path}
+          navigate={navigate}
+          token={auth.token}
+          onPasswordChanged={handlePasswordChanged}
+        />
+      );
+    }
+
+    if (path === "/login") {
+      if (waiting) return <PageMessage text="Restoring your session…" />;
+      if (auth.isAuthenticated) {
+        return <Redirect to={isAdmin ? "/admin" : "/"} navigate={navigate} />;
+      }
+      return <LoginPage navigate={navigate} loading={auth.loading} onLogin={handleLogin} />;
+    }
+
+    if (path === "/admin") {
+      if (waiting) return <PageMessage text="Restoring your session…" />;
+      if (!auth.isAuthenticated) {
+        return <Redirect to="/login" navigate={navigate}
+          notice="Please sign in to continue." notify={showToast} />;
+      }
+      if (!isAdmin) {
+        return <Redirect to="/" navigate={navigate}
+          notice="That page is for administrators only." notify={showToast} />;
+      }
+      return <AdminHome user={auth.user} navigate={navigate} onLogout={handleLogout} />;
+    }
+
+    if (path === "/favorites") {
+      if (waiting) return <PageMessage text="Restoring your session…" />;
+      if (!auth.isAuthenticated) {
+        return <Redirect to="/login" navigate={navigate}
+          notice="Please sign in to view your favorites." notify={showToast} />;
+      }
+      return <FavoritesPage auth={auth} navigate={navigate} onToggleFavorite={toggleFavorite} />;
+    }
+
+    if (bookingMovie) {
+      return (
+        <BookingPage
+          movie={bookingMovie}
+          onBack={() => setBookingMovie(null)}
+        />
+      );
+    }
+
+    return (
+      <div className="app">
       <header className="nav">
         <div className="nav-inner">
 
@@ -163,8 +306,6 @@ function App() {
             </button>
           </nav>
 
-          <button className="account-navbar-link" type="button"
-            onClick={() => navigateAccount('/account/register')}>Create Account</button>
           <div className="search-box">
             <Search size={17} />
 
@@ -183,6 +324,34 @@ function App() {
               </button>
             )}
           </div>
+
+          {!auth.initializing && (
+            auth.isAuthenticated ? (
+              <div className="nav-user">
+                {isAdmin && (
+                  <button className="account-navbar-link" type="button"
+                    onClick={() => navigate("/admin")}>Admin</button>
+                )}
+                <button className="account-navbar-link" type="button"
+                  onClick={() => navigate("/favorites")}>
+                  <Heart size={13} /> Favorites
+                </button>
+                <button className="account-navbar-link" type="button"
+                  onClick={() => navigate("/account/profile")}>Profile</button>
+                <button className="account-navbar-link" type="button"
+                  onClick={handleLogout}>
+                  <LogOut size={13} /> Logout
+                </button>
+              </div>
+            ) : (
+              <div className="nav-user">
+                <button className="account-navbar-link nav-user-primary" type="button"
+                  onClick={() => navigate("/login")}>Sign In</button>
+                <button className="account-navbar-link" type="button"
+                  onClick={() => navigate("/account/register")}>Create Account</button>
+              </div>
+            )
+          )}
         </div>
       </header>
 
@@ -212,10 +381,7 @@ function App() {
               <h1>{featured.title}</h1>
 
               <div className="hero-meta">
-                <span>
-                  <Star size={15} fill="currentColor" />
-                  {featured.rating}
-                </span>
+                <span className="mpaa-badge">{featured.rating}</span>
 
                 <span>{featured.genre}</span>
 
@@ -338,6 +504,9 @@ function App() {
                   movie={movie}
                   onOpen={() => setSelected(movie)}
                   onBook={() => setBookingMovie(movie)}
+                  isFavorite={favoriteIds.has(movie.tmdb_id)}
+                  signedIn={auth.isAuthenticated}
+                  onToggleFavorite={() => toggleFavorite(movie)}
                 />
               ))}
 
@@ -357,6 +526,9 @@ function App() {
       {selected && (
         <MovieModal
           movie={selected}
+          isFavorite={favoriteIds.has(selected.tmdb_id)}
+          signedIn={auth.isAuthenticated}
+          onToggleFavorite={() => toggleFavorite(selected)}
           onClose={() => setSelected(null)}
           onBook={() => {
             setSelected(null);
@@ -364,12 +536,24 @@ function App() {
           }}
         />
       )}
-    </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {renderPage()}
+      {toast && (
+        <div className={`toast toast-${toast.kind}`} role="status">
+          {toast.message}
+        </div>
+      )}
+    </>
   );
 }
 
 
-function MovieCard({ movie, onOpen, onBook }) {
+function MovieCard({ movie, onOpen, onBook, isFavorite, signedIn, onToggleFavorite }) {
   return (
     <article className="movie-card">
 
@@ -384,15 +568,18 @@ function MovieCard({ movie, onOpen, onBook }) {
 
         <div className="poster-shade" />
 
-        <span className="rating">
-          <Star size={12} fill="currentColor" />
-          {movie.rating}
-        </span>
+        <span className="rating">{movie.rating}</span>
 
         <span className="play-circle">
           <Play size={19} fill="currentColor" />
         </span>
       </button>
+
+      <HeartButton
+        active={isFavorite}
+        signedIn={signedIn}
+        onClick={onToggleFavorite}
+      />
 
       <div className="movie-info">
 
@@ -426,7 +613,7 @@ function MovieCard({ movie, onOpen, onBook }) {
 }
 
 
-function MovieModal({ movie, onClose, onBook }) {
+function MovieModal({ movie, onClose, onBook, isFavorite, signedIn, onToggleFavorite }) {
   useEffect(() => {
     const handler = (e) => {
       if (e.key === "Escape") onClose();
@@ -460,6 +647,13 @@ function MovieModal({ movie, onClose, onBook }) {
           <X size={21} />
         </button>
 
+        <HeartButton
+          className="in-modal"
+          active={isFavorite}
+          signedIn={signedIn}
+          onClick={onToggleFavorite}
+        />
+
         <div className="modal-media">
 
           <img
@@ -483,10 +677,7 @@ function MovieModal({ movie, onClose, onBook }) {
 
           <div className="detail-meta">
 
-            <span>
-              <Star size={15} fill="currentColor" />
-              {movie.rating}
-            </span>
+            <span className="mpaa-badge">{movie.rating}</span>
 
             <span>
               <CalendarDays size={15} />

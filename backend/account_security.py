@@ -143,8 +143,8 @@ def registration(users, tokens):
         return jsonify({"error": "An account with this email already exists."}), 409
     try:
         issue_email_token(tokens, user, "verify", timedelta(hours=24), "verify", "Verify your Cinema account")
-    except Exception:
-        # The account is inactive; resend-verification can recover from delivery errors.
+    except Exception as e:
+        print("SMTP ERROR:", repr(e)) # remove later
         return jsonify({"error": "Account created, but verification email could not be delivered. Use Resend verification."}), 503
     return jsonify({"message": "Account created. Check your email to verify your account.", "status": "Inactive"}), 201
 

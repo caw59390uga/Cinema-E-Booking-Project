@@ -1,0 +1,73 @@
+/* Styles for login/auth integration: navbar user controls, hearts, admin home,
+   favorites page, toast messages, and required-field markers. */
+
+/* ---- Navbar user controls ---- */
+.nav-user { display: flex; align-items: center; gap: 8px; }
+.nav-user .account-navbar-link { display: inline-flex; align-items: center; gap: 6px; }
+.nav-user .account-navbar-link:hover { background: #1b1b1f; }
+.nav-user .nav-user-primary { background: #f5b84b; color: #18120a; border-color: #f5b84b; font-weight: 700; }
+
+/* ---- Heart (favorites) button with tooltip ---- */
+.movie-card { position: relative; }
+.heart-btn {
+  position: absolute; top: 10px; right: 10px; z-index: 3;
+  width: 34px; height: 34px; display: grid; place-items: center;
+  border-radius: 50%; padding: 0;
+  border: 1px solid rgba(255,255,255,.16);
+  background: rgba(9,9,11,.74); color: #e4e4e7;
+  backdrop-filter: blur(6px); transition: color .15s, border-color .15s, background .15s;
+}
+.heart-btn:hover { color: #ff6b81; border-color: #ff6b81; }
+.heart-btn.active { color: #ff4d6d; border-color: #ff4d6d; background: rgba(48,12,20,.85); }
+.heart-btn:focus-visible { outline: 2px solid #f5b84b; outline-offset: 2px; }
+.heart-btn::after {
+  content: attr(data-tip);
+  position: absolute; top: calc(100% + 6px); right: 0; white-space: nowrap;
+  background: #000; color: #fff; font-size: 11px; padding: 5px 8px; border-radius: 6px;
+  opacity: 0; pointer-events: none; transition: opacity .15s;
+  border: 1px solid #333;
+}
+.heart-btn:hover::after, .heart-btn:focus-visible::after { opacity: 1; }
+.heart-btn.in-modal { top: 14px; right: 58px; width: 36px; height: 36px; z-index: 2; }
+
+/* ---- MPAA rating badge (replaces the star) ---- */
+.mpaa-badge { border: 1px solid currentColor; border-radius: 4px; padding: 1px 6px; font-size: 11px; font-weight: 700; letter-spacing: .04em; }
+
+/* ---- Account-style pages (admin, favorites) ---- */
+.account-panel-wide { width: min(1000px, calc(100% - 32px)); }
+.header-actions { display: flex; align-items: center; gap: 14px; }
+.header-logout { display: inline-flex; align-items: center; gap: 6px; background: transparent; color: #f5b84b; border: 1px solid #544222; border-radius: 8px; padding: 8px 11px; font-size: 12px; }
+.header-logout:hover { background: #1b1b1f; }
+.admin-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 22px; }
+.admin-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; text-align: left; padding: 20px; border: 1px solid #333238; background: #19191c; border-radius: 12px; color: #f4f4f5; transition: border-color .2s; }
+.admin-tile:hover { border-color: #f5b84b; }
+.admin-tile svg { color: #f5b84b; }
+.admin-tile strong { font-size: 15px; }
+.admin-tile span { font-size: 12px; color: #9a9aa3; line-height: 1.5; }
+.admin-note { margin-top: 18px; }
+.fav-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px 16px; margin-top: 22px; }
+.fav-poster { cursor: default; }
+.fav-empty { text-align: center; color: #8f8f98; padding: 36px 10px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.fav-empty .account-action { width: auto; }
+.page-loading { color: #8f8f98; font-size: 13px; padding: 40px 24px; text-align: center; }
+
+/* ---- Required-field marker ---- */
+.required-mark { color: #f5b84b; margin-left: 3px; }
+.required-note { font-size: 11px; color: #8f8f98; margin: 0; }
+
+/* ---- Toast messages ---- */
+.toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 100; padding: 11px 16px; border-radius: 9px; font-size: 13px; max-width: min(520px, calc(100% - 32px)); box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+.toast-success { background: #213c2c; color: #acdfbe; border: 1px solid #2f5a42; }
+.toast-error { background: #402323; color: #ffb8b8; border: 1px solid #6a3636; }
+.toast-info { background: #1c1b20; color: #e4e4e7; border: 1px solid #3a393f; }
+
+@media (max-width: 900px) {
+  .fav-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .nav { height: auto; }
+  .nav-inner { flex-wrap: wrap; padding: 10px 16px; }
+  .nav-user { flex-wrap: wrap; }
+  .admin-grid { grid-template-columns: 1fr; }
+  .fav-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

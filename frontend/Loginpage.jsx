@@ -68,8 +68,15 @@ export default function LoginPage({
           className="account-form"
           onSubmit={handleSubmit}
         >
+          <p className="required-note">
+            Fields marked <span className="required-mark">*</span> are required.
+          </p>
+
           <label className="account-field">
-            Email address
+            <span>
+              Email address
+              <span className="required-mark" aria-hidden="true">*</span>
+            </span>
 
             <input
               type="email"
@@ -83,7 +90,10 @@ export default function LoginPage({
           </label>
 
           <label className="account-field">
-            Password
+            <span>
+              Password
+              <span className="required-mark" aria-hidden="true">*</span>
+            </span>
 
             <input
               type="password"
