@@ -238,7 +238,7 @@ function App() {
         return <Redirect to="/" navigate={navigate}
           notice="That page is for administrators only." notify={showToast} />;
       }
-      return <AdminHome user={auth.user} navigate={navigate} onLogout={handleLogout} />;
+      return <AdminHome user={auth.user} navigate={navigate} onLogout={handleLogout} token={auth.accessToken} />;
     }
 
     if (path === "/favorites") {

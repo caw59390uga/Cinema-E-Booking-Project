@@ -306,5 +306,9 @@ def account_resend_verification():
 def change_account_password(user_id):
     return secure_change_password(users_collection, user_id)
 
+# Sprint 3 administrator API (routes check bearer token and Admin role).
+from admin_api import make_admin_blueprint
+app.register_blueprint(make_admin_blueprint(db))
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

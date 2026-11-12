@@ -1,0 +1,49 @@
+/* Admin-only additions, scoped so the existing customer pages are unchanged. */
+.admin-panel { padding-bottom: 38px; }
+.admin-intro { display: flex; gap: 18px; align-items: center; margin-bottom: 24px; }
+.admin-intro .account-panel-icon { margin: 0; flex-shrink: 0; }
+.admin-intro h1 { margin: 0 0 7px; }
+.admin-intro .account-subtitle { margin: 0; }
+.admin-back { margin: 8px 0 20px; display: inline-flex; gap: 6px; align-items: center; background: transparent; border: 0; color: #f5b84b; font-size: 13px; padding: 6px 0; }
+.admin-back:hover { text-decoration: underline; }
+.admin-workspace { border: 1px solid #333238; border-radius: 14px; padding: clamp(18px, 3vw, 30px); background: #151519; text-align: left; }
+.admin-workspace-heading { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 23px; }
+.admin-workspace-heading > svg { color: #f5b84b; flex-shrink: 0; margin-top: 4px; }
+.admin-workspace h2 { font-size: 22px; margin: 0 0 5px; color: #fafafa; }
+.admin-workspace-heading p, .admin-muted { color: #a1a1aa; font-size: 13px; line-height: 1.55; margin: 5px 0 13px; }
+.admin-muted strong { color: #e4e4e7; }
+.admin-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 18px; }
+.admin-field { display: flex; flex-direction: column; min-width: 0; gap: 6px; }
+.admin-field-wide { grid-column: 1 / -1; }
+.admin-field label { font-size: 12px; color: #dfdfe5; font-weight: 600; }
+.admin-required { color: #f5b84b; }
+.admin-field input, .admin-field select, .admin-field textarea { width: 100%; background: #1c1c21; border: 1px solid #3d3d45; border-radius: 8px; padding: 11px 12px; min-height: 43px; color: #fff; font: inherit; font-size: 13px; outline: none; }
+.admin-field textarea { min-height: 92px; resize: vertical; }
+.admin-field select option { background: #1c1c21; }
+.admin-field input:focus, .admin-field select:focus, .admin-field textarea:focus { border-color: #f5b84b; }
+.admin-field [aria-invalid="true"] { border-color: #ff7a80; }
+.admin-error { display: block; color: #ff9b9d; font-size: 12px; line-height: 1.4; margin: 3px 0; }
+.admin-hint { color: #9898a2; font-size: 11px; line-height: 1.35; }
+.admin-feedback { display: flex; align-items: flex-start; gap: 8px; margin: 16px 0 12px; padding: 12px 13px; border-radius: 8px; font-size: 13px; line-height: 1.5; }
+.admin-feedback svg { flex-shrink: 0; }
+.admin-feedback-error { color: #ffc3c4; background: #3b2225; border: 1px solid #6b3338; }
+.admin-feedback-success { color: #bde8c5; background: #1b3425; border: 1px solid #396b48; }
+.admin-feedback button { border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 5px; padding: 3px 8px; margin-left: auto; }
+.admin-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.admin-primary { background: #f5b84b; color: #201509; font-weight: 700; border-radius: 8px; padding: 11px 16px; border: 1px solid #f5b84b; font-size: 13px; cursor: pointer; }
+.admin-primary:hover:not(:disabled) { background: #ffcb70; }
+.admin-primary:disabled { opacity: .5; cursor: not-allowed; }
+.admin-secondary { background: #25252a; border: 1px solid #4d4d55; border-radius: 8px; color: #fff; padding: 11px 16px; font-size: 13px; cursor: pointer; }
+.admin-room-section { margin: 24px 0; }
+.admin-room-section h3 { margin: 0 0 12px; font-size: 15px; color: #eeeef2; }
+.admin-room-list { display: grid; gap: 8px; }
+.admin-room { display: flex; align-items: center; gap: 13px; padding: 13px; border: 1px solid #39393f; border-radius: 9px; background: #1b1b20; cursor: pointer; }
+.admin-room input { accent-color: #f5b84b; }
+.admin-room > span { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.admin-room strong { font-size: 13px; color: #eee; }
+.admin-room small { font-size: 11px; color: #aaaab2; }
+.admin-room em { font-size: 11px; margin-left: auto; font-style: normal; color: #a2d6ae; white-space: nowrap; }
+.admin-room-taken { opacity: .65; cursor: not-allowed; }
+.admin-room-taken em { color: #ff9b9d; }
+.admin-room-picked { border-color: #f5b84b; background: #2b2416; }
+@media(max-width:700px) { .admin-intro { align-items: flex-start; } .admin-form-grid { grid-template-columns: 1fr; } .admin-room { flex-wrap: wrap; } .admin-room em { margin-left: 0; } }
