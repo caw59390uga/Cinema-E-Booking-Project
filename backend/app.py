@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from models import (
     format_movie, format_user, create_user, get_user_by_email, get_user_by_id,
     set_address, add_card, delete_card, add_favorite, remove_favorite,
-    get_favorite_movies, ensure_indexes
+    get_favorite_movies, ensure_indexes, showtimes_by_movie
 )
 from security import (
     hash_password, verify_password, generate_token, hash_token
@@ -52,7 +52,9 @@ def get_movies():
             query["status"] = {"$regex": f"^{status_filter}$", "$options": "i"}
             
         movies = list(movies_collection.find(query, {"_id": 0}))
-        return jsonify([format_movie(m) for m in movies]), 200
+        ids = [m["tmdb_id"] for m in movies if "tmdb_id" in m]
+        st_map = showtimes_by_movie(db, ids)
+        return jsonify([format_movie(m, st_map.get(m["tmdb_id"])) for m in movies]), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -66,7 +68,9 @@ def search_movies():
 
         query = {"title": {"$regex": title_query, "$options": "i"}}
         movies = list(movies_collection.find(query, {"_id": 0}))
-        return jsonify([format_movie(m) for m in movies]), 200
+        ids = [m["tmdb_id"] for m in movies if "tmdb_id" in m]
+        st_map = showtimes_by_movie(db, ids)
+        return jsonify([format_movie(m, st_map.get(m["tmdb_id"])) for m in movies]), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -80,7 +84,9 @@ def filter_movies():
 
         query = {"genre": {"$regex": f"^{genre_query}$", "$options": "i"}}
         movies = list(movies_collection.find(query, {"_id": 0}))
-        return jsonify([format_movie(m) for m in movies]), 200
+        ids = [m["tmdb_id"] for m in movies if "tmdb_id" in m]
+        st_map = showtimes_by_movie(db, ids)
+        return jsonify([format_movie(m, st_map.get(m["tmdb_id"])) for m in movies]), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -92,7 +98,8 @@ def get_movie_by_id(tmdb_id):
         if not movie:
             return jsonify({"error": "Movie not found"}), 404
 
-        return jsonify(format_movie(movie)), 200
+        st_map = showtimes_by_movie(db, [tmdb_id])
+        return jsonify(format_movie(movie, st_map.get(tmdb_id))), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -309,6 +316,10 @@ def change_account_password(user_id):
 # Sprint 3 administrator API (routes check bearer token and Admin role).
 from admin_api import make_admin_blueprint
 app.register_blueprint(make_admin_blueprint(db))
+
+# Sprint 3 user & booking API (seat map, holds, pricing, order summary).
+from booking_api import make_booking_blueprint
+app.register_blueprint(make_booking_blueprint(db))
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

@@ -11,7 +11,8 @@ from pymongo.errors import DuplicateKeyError
 from account_security import read_authenticated_user
 from models import (
     MOVIE_GENRES, MPAA_RATINGS, MOVIE_STATUSES,
-    create_movie, create_showtime, format_movie, list_available_showrooms,
+    create_movie, create_showtime, format_movie, format_showroom,
+    list_available_showrooms, list_showrooms,
 )
 
 
@@ -86,6 +87,15 @@ def make_admin_blueprint(db):
         except Exception:
             current_app.logger.exception("Unable to create movie")
             return jsonify({"error": "Unable to add the movie right now."}), 500
+
+    @bp.get("/showrooms")
+    def all_showrooms():
+        try:
+            rooms = list_showrooms(db)
+            return jsonify({"showrooms": [format_showroom(r) for r in rooms]}), 200
+        except Exception:
+            current_app.logger.exception("Unable to load showrooms")
+            return jsonify({"error": "Unable to load showrooms right now."}), 500
 
     @bp.get("/showrooms/availability")
     def available_showrooms():
