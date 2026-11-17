@@ -1,0 +1,13 @@
+/* Additional styles for ticket types and simulated payment */
+.ticket-types { display: grid; gap: 12px; margin-top: 18px; }
+.ticket-type-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border: 1px solid rgba(150,150,150,.25); border-radius: 12px; }
+.ticket-type-row > div:first-child { display: grid; gap: 5px; }
+.ticket-type-row span, .ticket-seat-hint { opacity: .75; font-size: .9rem; }
+.ticket-quantity { display: flex; align-items: center; gap: 14px; }
+.ticket-quantity button { border: 1px solid rgba(150,150,150,.4); background: transparent; color: inherit; border-radius: 8px; min-width: 34px; height: 34px; font-size: 20px; cursor: pointer; }
+.ticket-quantity button:disabled { opacity: .35; cursor: not-allowed; }
+.ticket-seat-hint { margin-top: 12px; }
+.payment-mockup .demo-warning { padding: 12px; border-radius: 8px; background: rgba(230,160,30,.12); margin: 14px 0; }
+.payment-summary-line { display: flex; justify-content: space-between; align-items: center; margin: 20px 0; font-size: 1.1rem; }
+.payment-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 18px; }
+.payment-actions .confirm-booking { flex: 1; min-width: 210px; }
