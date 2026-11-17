@@ -6,8 +6,10 @@ import {
   Clock3,
   Armchair,
   User,
-  ArrowLeft
+  ArrowLeft, CreditCard
 } from "lucide-react";
+import "./BookingPageExtras.css";
+
 export default function BookingPage({ movie, onBack }) {
   
   const [date, setDate] = useState("Today");
@@ -16,13 +18,28 @@ export default function BookingPage({ movie, onBack }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [confirmed, setConfirmed] = useState(false);
+  const [step, setStep] = useState("checkout");
+  const [ticketCounts, setTicketCounts] = useState({ Adult: 1, Child: 0, Senior: 0 });
+  const ticketPrices = { Adult: 13.5, Child: 9.5, Senior: 10.5 };
+  const ticketCount = Object.values(ticketCounts).reduce((sum, n) => sum + n, 0);
+
+  function updateTicketCount(type, delta) {
+    const next = ticketCounts[type] + delta;
+    const nextTotal = ticketCount + delta;
+    if (next < 0 || nextTotal > 8 || nextTotal < 1) return;
+    setTicketCounts((current) => ({ ...current, [type]: next }));
+    if (delta < 0 && selectedSeats.length > nextTotal) {
+      setSelectedSeats((current) => current.slice(0, nextTotal));
+    }
+  }
 
   const rows = ["A", "B", "C", "D", "E", "F"];
   const seatsPerRow = 10;
 
-  const ticketPrice = 13.5;
-  const subtotal = selectedSeats.length * ticketPrice;
-  const fee = selectedSeats.length ? 2.5 : 0;
+  const subtotal = Object.entries(ticketCounts).reduce(
+    (sum, [type, count]) => sum + ticketPrices[type] * count, 0
+  );
+  const fee = ticketCount > 0 ? 2.5 : 0;
   const total = subtotal + fee;
 
   function toggleSeat(seat) {
@@ -31,7 +48,7 @@ export default function BookingPage({ movie, onBack }) {
         return current.filter((s) => s !== seat);
       }
 
-      if (current.length >= 8) {
+      if (current.length >= ticketCount) {
         return current;
       }
 
@@ -43,14 +60,15 @@ export default function BookingPage({ movie, onBack }) {
     e.preventDefault();
 
     if (
-      selectedSeats.length === 0 ||
+      selectedSeats.length !== ticketCount ||
+      !time ||
       !name.trim() ||
       !email.trim()
     ) {
       return;
     }
 
-    setConfirmed(true);
+    setStep("payment");
   }
 
   if (confirmed) {
@@ -107,7 +125,7 @@ export default function BookingPage({ movie, onBack }) {
             <div>
               <span>SEATS</span>
               <strong>
-                {selectedSeats.sort().join(", ")}
+                {[...selectedSeats].sort().join(", ")}
               </strong>
             </div>
 
@@ -244,13 +262,40 @@ export default function BookingPage({ movie, onBack }) {
 
 
             <div className="booking-section">
+              <div className="booking-section-title">
+                <User size={19} />
+                <div>
+                  <h2>Choose ticket types</h2>
+                  <p>Select 1–8 Adult, Child, or Senior tickets</p>
+                </div>
+              </div>
+              <div className="ticket-types">
+                {Object.keys(ticketPrices).map((type) => (
+                  <div className="ticket-type-row" key={type}>
+                    <div><strong>{type}</strong><span>${ticketPrices[type].toFixed(2)} each</span></div>
+                    <div className="ticket-quantity">
+                      <button type="button" aria-label={`Remove ${type} ticket`}
+                        disabled={ticketCounts[type] === 0 || ticketCount === 1}
+                        onClick={() => updateTicketCount(type, -1)}>−</button>
+                      <strong>{ticketCounts[type]}</strong>
+                      <button type="button" aria-label={`Add ${type} ticket`}
+                        disabled={ticketCount >= 8}
+                        onClick={() => updateTicketCount(type, 1)}>+</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="ticket-seat-hint">{ticketCount} ticket{ticketCount !== 1 ? "s" : ""} — select {ticketCount} seat{ticketCount !== 1 ? "s" : ""} below.</p>
+            </div>
+
+            <div className="booking-section">
 
               <div className="booking-section-title">
                 <Armchair size={19} />
 
                 <div>
                   <h2>Choose your seats</h2>
-                  <p>Maximum 8 seats per booking</p>
+                  <p>Select exactly {ticketCount} seat{ticketCount !== 1 ? "s" : ""}</p>
                 </div>
               </div>
 
@@ -316,7 +361,7 @@ export default function BookingPage({ movie, onBack }) {
             </div>
 
 
-            <form
+            {step === "checkout" && <form
               className="booking-section"
               onSubmit={submitBooking}
             >
@@ -365,15 +410,39 @@ export default function BookingPage({ movie, onBack }) {
                 className="confirm-booking"
                 type="submit"
                 disabled={
-                  selectedSeats.length === 0 ||
+                  selectedSeats.length !== ticketCount ||
+                  !time ||
                   !name.trim() ||
                   !email.trim()
                 }
               >
-                Confirm Booking
+                Continue to Payment
               </button>
 
-            </form>
+            </form>}
+
+            {step === "payment" && (
+              <section className="booking-section payment-mockup">
+                <div className="booking-section-title">
+                  <CreditCard size={19} />
+                  <div><h2>Payment (Demo)</h2><p>Simulation only — no actual payment is processed.</p></div>
+                </div>
+                <p className="demo-warning">Use fictional test details only. Do not enter a real card number or CVV.</p>
+                <div className="payment-summary-line"><span>Amount due</span><strong>${total.toFixed(2)}</strong></div>
+                <form onSubmit={(e) => { e.preventDefault(); setConfirmed(true); }}>
+                  <div className="input-grid">
+                    <label>Cardholder name<input placeholder="Demo Customer" required autoComplete="off" /></label>
+                    <label>Demo card number<input placeholder="4242 4242 4242 4242" inputMode="numeric" pattern="[0-9 ]{13,23}" required autoComplete="off" /></label>
+                    <label>Expiration (MM/YY)<input placeholder="12/30" pattern="(0[1-9]|1[0-2])/[0-9]{2}" required autoComplete="off" /></label>
+                    <label>Demo CVV<input placeholder="123" inputMode="numeric" pattern="[0-9]{3,4}" required autoComplete="off" /></label>
+                  </div>
+                  <div className="payment-actions">
+                    <button type="button" className="back-button" onClick={() => setStep("checkout")}>Back to checkout</button>
+                    <button type="submit" className="confirm-booking">Simulate Payment — ${total.toFixed(2)}</button>
+                  </div>
+                </form>
+              </section>
+            )}
 
           </section>
 
@@ -412,17 +481,19 @@ export default function BookingPage({ movie, onBack }) {
                 </strong>
               </div>
 
+              <div className="summary-row">
+                <span>Tickets / seats</span>
+                <strong>{ticketCount} / {selectedSeats.length}</strong>
+              </div>
+
               <div className="summary-divider" />
 
-              <div className="summary-row">
-                <span>
-                  Tickets × {selectedSeats.length}
-                </span>
-
-                <strong>
-                  ${subtotal.toFixed(2)}
-                </strong>
-              </div>
+              {Object.entries(ticketCounts).filter(([, count]) => count > 0).map(([type, count]) => (
+                <div className="summary-row" key={type}>
+                  <span>{type} × {count}</span>
+                  <strong>${(ticketPrices[type] * count).toFixed(2)}</strong>
+                </div>
+              ))}
 
               <div className="summary-row">
                 <span>Booking fee</span>
