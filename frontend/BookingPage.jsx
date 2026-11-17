@@ -1,5 +1,15 @@
-function BookingPage({ movie, onBack }) {
-
+import React, { useState } from "react";
+import {
+  Clapperboard,
+  Check,
+  CalendarDays,
+  Clock3,
+  Armchair,
+  User,
+  ArrowLeft
+} from "lucide-react";
+export default function BookingPage({ movie, onBack }) {
+  
   const [date, setDate] = useState("Today");
   const [time, setTime] = useState(movie.showtimes?.[0] || "2:00 PM");
   const [selectedSeats, setSelectedSeats] = useState([]);
