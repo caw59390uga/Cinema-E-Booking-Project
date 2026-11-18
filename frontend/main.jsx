@@ -13,7 +13,7 @@ import AdminHome from "./AdminHome.jsx";
 import FavoritesPage from "./FavoritesPage.jsx";
 import HeartButton from "./HeartButton.jsx";
 import useAuth from "./hooks/useAuth.js";
-
+import BookingPage from "./BookingPage.jsx";
 const API_BASE =
   import.meta.env.VITE_API_URL || "http://127.0.0.1:5000/api";
 
@@ -34,6 +34,13 @@ function PageMessage({ text }) {
       <p className="page-loading">{text}</p>
     </div>
   );
+}
+
+// Shows a showtime (an ISO time ending in Z) in the visitor's own time zone.
+function formatShowtime(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
 // Sends the user to another page (used by the route guards).
@@ -87,6 +94,7 @@ function App() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
   const [bookingMovie, setBookingMovie] = useState(null);
+  const [bookingShowtimeId, setBookingShowtimeId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -238,7 +246,7 @@ function App() {
         return <Redirect to="/" navigate={navigate}
           notice="That page is for administrators only." notify={showToast} />;
       }
-      return <AdminHome user={auth.user} navigate={navigate} onLogout={handleLogout} token={auth.accessToken} />;
+      return <AdminHome user={auth.user} navigate={navigate} onLogout={handleLogout} token={auth.token} />;
     }
 
     if (path === "/favorites") {
@@ -254,7 +262,11 @@ function App() {
       return (
         <BookingPage
           movie={bookingMovie}
-          onBack={() => setBookingMovie(null)}
+          auth={auth}
+          navigate={navigate}
+          notify={showToast}
+          initialShowtimeId={bookingShowtimeId}
+          onBack={() => { setBookingMovie(null); setBookingShowtimeId(null); }}
         />
       );
     }
@@ -530,9 +542,10 @@ function App() {
           signedIn={auth.isAuthenticated}
           onToggleFavorite={() => toggleFavorite(selected)}
           onClose={() => setSelected(null)}
-          onBook={() => {
+          onBook={(showtimeId) => {
             setSelected(null);
             setBookingMovie(selected);
+            setBookingShowtimeId(typeof showtimeId === "string" ? showtimeId : null);
           }}
         />
       )}
@@ -693,16 +706,20 @@ function MovieModal({ movie, onClose, onBook, isFavorite, signedIn, onToggleFavo
 
           <div className="showtimes">
 
-            <h3>Today's Showtimes</h3>
+            <h3>Upcoming Showtimes</h3>
 
             <div className="times">
 
-              {(movie.showtimes || []).map((time) => (
+              {(movie.showtimes || []).length === 0 && (
+                <p className="description">No showtimes scheduled yet.</p>
+              )}
+
+              {(movie.showtimes || []).slice(0, 8).map((st) => (
                 <button
-                  key={time}
-                  onClick={onBook}
+                  key={st.showtime_id}
+                  onClick={() => onBook(st.showtime_id)}
                 >
-                  {time}
+                  {formatShowtime(st.start_time)}
                 </button>
               ))}
 
@@ -712,7 +729,7 @@ function MovieModal({ movie, onClose, onBook, isFavorite, signedIn, onToggleFavo
 
           <button
             className="trailer-btn"
-            onClick={onBook}
+            onClick={() => onBook()}
           >
             <CalendarDays size={16} />
             Continue to Booking
@@ -723,455 +740,6 @@ function MovieModal({ movie, onClose, onBook, isFavorite, signedIn, onToggleFavo
     </div>
   );
 }
-
-
-/* =========================================================
-   BOOKING PAGE
-========================================================= */
-
-function BookingPage({ movie, onBack }) {
-
-  const [date, setDate] = useState("Today");
-  const [time, setTime] = useState(movie.showtimes?.[0] || "2:00 PM");
-  const [selectedSeats, setSelectedSeats] = useState([]);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [confirmed, setConfirmed] = useState(false);
-
-  const rows = ["A", "B", "C", "D", "E", "F"];
-  const seatsPerRow = 10;
-
-  const ticketPrice = 13.5;
-  const subtotal = selectedSeats.length * ticketPrice;
-  const fee = selectedSeats.length ? 2.5 : 0;
-  const total = subtotal + fee;
-
-  function toggleSeat(seat) {
-    setSelectedSeats((current) => {
-      if (current.includes(seat)) {
-        return current.filter((s) => s !== seat);
-      }
-
-      if (current.length >= 8) {
-        return current;
-      }
-
-      return [...current, seat];
-    });
-  }
-
-  function submitBooking(e) {
-    e.preventDefault();
-
-    if (
-      selectedSeats.length === 0 ||
-      !name.trim() ||
-      !email.trim()
-    ) {
-      return;
-    }
-
-    setConfirmed(true);
-  }
-
-  if (confirmed) {
-    return (
-      <div className="booking-page">
-
-        <header className="nav">
-          <div className="nav-inner">
-
-            <button
-              className="brand"
-              onClick={onBack}
-            >
-              <span className="brand-icon">
-                <Clapperboard size={19} />
-              </span>
-
-              <span>CINEMA</span>
-            </button>
-
-          </div>
-        </header>
-
-        <main className="confirmation-page">
-
-          <div className="confirmation-icon">
-            <Check size={38} />
-          </div>
-
-          <p className="section-kicker">
-            BOOKING CONFIRMED
-          </p>
-
-          <h1>Your tickets are booked.</h1>
-
-          <p className="confirmation-text">
-            Your reservation for{" "}
-            <strong>{movie.title}</strong>{" "}
-            is confirmed.
-          </p>
-
-          <div className="confirmation-card">
-
-            <div>
-              <span>DATE</span>
-              <strong>{date}</strong>
-            </div>
-
-            <div>
-              <span>SHOWTIME</span>
-              <strong>{time}</strong>
-            </div>
-
-            <div>
-              <span>SEATS</span>
-              <strong>
-                {selectedSeats.sort().join(", ")}
-              </strong>
-            </div>
-
-            <div>
-              <span>TOTAL</span>
-              <strong>${total.toFixed(2)}</strong>
-            </div>
-
-          </div>
-
-          <button
-            className="primary-btn"
-            onClick={onBack}
-          >
-            Back to Movies
-          </button>
-
-        </main>
-      </div>
-    );
-  }
-
-  return (
-    <div className="booking-page">
-
-      <header className="nav">
-        <div className="nav-inner">
-
-          <button
-            className="brand"
-            onClick={onBack}
-          >
-            <span className="brand-icon">
-              <Clapperboard size={19} />
-            </span>
-
-            <span>CINEMA</span>
-          </button>
-
-        </div>
-      </header>
-
-      <main className="booking-container">
-
-        <button
-          className="back-button"
-          onClick={onBack}
-        >
-          <ArrowLeft size={17} />
-          Back to movies
-        </button>
-
-        <div className="booking-heading">
-          <div>
-            <p className="section-kicker">
-              BOOK TICKETS
-            </p>
-
-            <h1>{movie.title}</h1>
-
-            <p>
-              {movie.genre} · {movie.rating}
-            </p>
-          </div>
-        </div>
-
-        <div className="booking-layout">
-
-          <section className="booking-main">
-
-            <div className="booking-section">
-
-              <div className="booking-section-title">
-                <CalendarDays size={19} />
-                <div>
-                  <h2>Choose a date</h2>
-                  <p>Select your show date</p>
-                </div>
-              </div>
-
-              <div className="date-options">
-
-                {["Today", "Tomorrow", "Friday", "Saturday"].map(
-                  (d) => (
-                    <button
-                      key={d}
-                      className={
-                        date === d
-                          ? "date-card selected"
-                          : "date-card"
-                      }
-                      onClick={() => setDate(d)}
-                    >
-                      <span>{d}</span>
-                    </button>
-                  )
-                )}
-
-              </div>
-
-            </div>
-
-
-            <div className="booking-section">
-
-              <div className="booking-section-title">
-                <Clock3 size={19} />
-
-                <div>
-                  <h2>Choose a showtime</h2>
-                  <p>Select your preferred time</p>
-                </div>
-              </div>
-
-              <div className="booking-times">
-
-                {(movie.showtimes || []).map((t) => (
-                  <button
-                    key={t}
-                    className={
-                      time === t
-                        ? "booking-time selected"
-                        : "booking-time"
-                    }
-                    onClick={() => setTime(t)}
-                  >
-                    {t}
-                  </button>
-                ))}
-
-              </div>
-
-            </div>
-
-
-            <div className="booking-section">
-
-              <div className="booking-section-title">
-                <Armchair size={19} />
-
-                <div>
-                  <h2>Choose your seats</h2>
-                  <p>Maximum 8 seats per booking</p>
-                </div>
-              </div>
-
-              <div className="screen">
-                SCREEN
-              </div>
-
-              <div className="seat-map">
-
-                {rows.map((row) => (
-                  <div
-                    className="seat-row"
-                    key={row}
-                  >
-
-                    <span className="row-label">
-                      {row}
-                    </span>
-
-                    {Array.from({
-                      length: seatsPerRow
-                    }).map((_, i) => {
-
-                      const seat = `${row}${i + 1}`;
-
-                      const selected =
-                        selectedSeats.includes(seat);
-
-                      return (
-                        <button
-                          key={seat}
-                          className={
-                            selected
-                              ? "seat selected"
-                              : "seat"
-                          }
-                          onClick={() =>
-                            toggleSeat(seat)
-                          }
-                        >
-                          {i + 1}
-                        </button>
-                      );
-                    })}
-
-                  </div>
-                ))}
-
-              </div>
-
-              <div className="seat-legend">
-                <span>
-                  <i className="legend available" />
-                  Available
-                </span>
-
-                <span>
-                  <i className="legend chosen" />
-                  Selected
-                </span>
-              </div>
-
-            </div>
-
-
-            <form
-              className="booking-section"
-              onSubmit={submitBooking}
-            >
-
-              <div className="booking-section-title">
-                <User size={19} />
-
-                <div>
-                  <h2>Your information</h2>
-                  <p>We'll send your booking confirmation here</p>
-                </div>
-              </div>
-
-              <div className="input-grid">
-
-                <label>
-                  Full name
-
-                  <input
-                    value={name}
-                    onChange={(e) =>
-                      setName(e.target.value)
-                    }
-                    placeholder="John Doe"
-                    required
-                  />
-                </label>
-
-                <label>
-                  Email address
-
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) =>
-                      setEmail(e.target.value)
-                    }
-                    placeholder="john@example.com"
-                    required
-                  />
-                </label>
-
-              </div>
-
-              <button
-                className="confirm-booking"
-                type="submit"
-                disabled={
-                  selectedSeats.length === 0 ||
-                  !name.trim() ||
-                  !email.trim()
-                }
-              >
-                Confirm Booking
-              </button>
-
-            </form>
-
-          </section>
-
-
-          <aside className="booking-summary">
-
-            <img
-              src={movie.poster_url}
-              alt={movie.title}
-            />
-
-            <div className="summary-content">
-
-              <p className="section-kicker">
-                YOUR ORDER
-              </p>
-
-              <h2>{movie.title}</h2>
-
-              <div className="summary-row">
-                <span>Date</span>
-                <strong>{date}</strong>
-              </div>
-
-              <div className="summary-row">
-                <span>Showtime</span>
-                <strong>{time}</strong>
-              </div>
-
-              <div className="summary-row">
-                <span>Seats</span>
-                <strong>
-                  {selectedSeats.length
-                    ? selectedSeats.join(", ")
-                    : "None selected"}
-                </strong>
-              </div>
-
-              <div className="summary-divider" />
-
-              <div className="summary-row">
-                <span>
-                  Tickets × {selectedSeats.length}
-                </span>
-
-                <strong>
-                  ${subtotal.toFixed(2)}
-                </strong>
-              </div>
-
-              <div className="summary-row">
-                <span>Booking fee</span>
-
-                <strong>
-                  ${fee.toFixed(2)}
-                </strong>
-              </div>
-
-              <div className="summary-total">
-                <span>Total</span>
-
-                <strong>
-                  ${total.toFixed(2)}
-                </strong>
-              </div>
-
-            </div>
-
-          </aside>
-
-        </div>
-
-      </main>
-    </div>
-  );
-}
-
 
 createRoot(
   document.getElementById("root")

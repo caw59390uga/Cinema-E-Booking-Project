@@ -54,7 +54,7 @@ def get_movies():
         movies = list(movies_collection.find(query, {"_id": 0}))
         ids = [m["tmdb_id"] for m in movies if "tmdb_id" in m]
         st_map = showtimes_by_movie(db, ids)
-        return jsonify([format_movie(m, st_map.get(m["tmdb_id"])) for m in movies]), 200
+        return jsonify([format_movie(m, st_map.get(m.get("tmdb_id"))) for m in movies]), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -70,7 +70,7 @@ def search_movies():
         movies = list(movies_collection.find(query, {"_id": 0}))
         ids = [m["tmdb_id"] for m in movies if "tmdb_id" in m]
         st_map = showtimes_by_movie(db, ids)
-        return jsonify([format_movie(m, st_map.get(m["tmdb_id"])) for m in movies]), 200
+        return jsonify([format_movie(m, st_map.get(m.get("tmdb_id"))) for m in movies]), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -86,7 +86,7 @@ def filter_movies():
         movies = list(movies_collection.find(query, {"_id": 0}))
         ids = [m["tmdb_id"] for m in movies if "tmdb_id" in m]
         st_map = showtimes_by_movie(db, ids)
-        return jsonify([format_movie(m, st_map.get(m["tmdb_id"])) for m in movies]), 200
+        return jsonify([format_movie(m, st_map.get(m.get("tmdb_id"))) for m in movies]), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -129,7 +129,7 @@ def login():
     if not user or not verify_password(password, user.get('passwordHash', '')):
         return jsonify({'error': 'Invalid email or password.'}), 401
     if user.get('status') == 'Inactive':
-        return jsonify({'error': 'Account is not verified. Please check your email to verify your account.'}), 403
+        return jsonify({'error': 'Verify your email before logging in.'}), 403
     if user.get('status') != 'Active':
         return jsonify({'error': 'Account access is not available.'}), 403
     try:
@@ -286,7 +286,7 @@ def remove_fav(user_id, tmdb_id):
 @app.before_request
 def protect_private_user_routes():
     if request.method == "OPTIONS":
-        return None
+        return None  # Allow preflight requests without authentication
     protected = {
         'get_profile', 'update_profile', 'add_user_card', 'remove_user_card',
         'get_favorites', 'add_fav', 'remove_fav', 'change_account_password'

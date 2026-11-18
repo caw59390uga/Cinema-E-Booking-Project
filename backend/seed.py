@@ -198,11 +198,15 @@ def seed_showtimes(movies):
         return
     created = skipped = 0
     today = date.today()
+    # Hand out the running movies in rotation so every one of them gets showtimes
+    # (3 rooms x 4 slots x 7 days = 84 showings, enough for up to 84 movies).
+    next_movie = 0
     for d in range(DAYS_OF_SHOWTIMES):
         day = today + timedelta(days=d)
         for s, (hour, minute) in enumerate(SLOTS):
             for r, room in enumerate(SHOWROOMS):
-                movie = running[(s * 3 + r + d) % len(running)]
+                movie = running[next_movie % len(running)]
+                next_movie += 1
                 _, error = create_showtime(db, movie["tmdb_id"], room["showroomId"],
                                            local_to_utc(day, hour, minute))
                 if error:
